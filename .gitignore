@@ -1,0 +1,7 @@
+*~
+*.un~
+*.swp
+packer.exe
+packer_cache/
+output/
+*.pkrvars.hcl
