@@ -29,7 +29,7 @@ source "virtualbox-iso" "workspace" {
   headless = false
   cpus = 2
   memory = 4096
-  disk_size = 5120 
+  disk_size = 7168
   hard_drive_interface = "sata"
   sata_port_count = 2
   http_directory = "boot_scripts"
