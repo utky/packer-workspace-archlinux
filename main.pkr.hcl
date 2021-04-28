@@ -20,6 +20,7 @@ variable iso_checksum_url {
 }
 
 source "virtualbox-iso" "workspace" {
+  vm_name = "workspace"
   output_directory = "output"
   guest_os_type = "ArchLinux_64"
   iso_url = var.iso_url
