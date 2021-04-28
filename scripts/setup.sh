@@ -14,6 +14,12 @@ FQDN=workspace
 KEYMAP=us
 LANGUAGE=en_US.UTF-8
 
+VAULT_REPO_HOST=192.168.1.10
+VAULT_REPO_USER=pi
+VAULT_REPO_VAULTPASS=/mnt/share/home/imamura.yutaka/vault/vaultpass
+VAULT_REPO_VAULTFILE=/mnt/share/home/imamura.yutaka/vault/vaultfile.yml
+VAULT_DIR=".vault"
+
 sgdisk -o ${ROOT_DEVICE}
 
 sgdisk --new=1:0:+512M --change-name=1:"boot" --typecode=1:EF00 ${ROOT_DEVICE}
@@ -79,6 +85,9 @@ cat <<-EOF > "/mnt${CONFIG_SCRIPT}"
   echo "${SSH_PUBLIC_KEY}" > /home/${MAIN_USER}/.ssh/authorized_keys
   /usr/bin/chown ${MAIN_USER}:${MAIN_USER} /home/${MAIN_USER}/.ssh/authorized_keys
   /usr/bin/chmod 0600 /home/${MAIN_USER}/.ssh/authorized_keys
+  sudo mv /id_rsa /home/${MAIN_USER}/.ssh/id_rsa
+  sudo chown ${MAIN_USER}:${MAIN_USER} /home/${MAIN_USER}/.ssh/id_rsa
+  sudo chmod 600 /home/${MAIN_USER}/.ssh/id_rsa
 
   ln -sf /usr/share/zoneinfo/UTC /etc/localtime
   hwclock --systohc
@@ -103,11 +112,26 @@ cat <<-EOF > "/mnt${CONFIG_SCRIPT}"
   echo 'DHCP=yes' >> /etc/systemd/network/20-wired.network
   cat /etc/systemd/network/20-wired.network
 
+  pacman -S --noconfirm ansible git
+
+  sudo -u ${MAIN_USER} -H sh -x <<EOS
+    mkdir -p "/home/${MAIN_USER}/${VAULT_DIR}"
+    chmod 700 "/home/${MAIN_USER}/${VAULT_DIR}"
+    scp -i /home/${MAIN_USER}/.ssh/id_rsa -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no ${VAULT_REPO_USER}@${VAULT_REPO_HOST}:${VAULT_REPO_VAULTPASS} "/home/${MAIN_USER}/${VAULT_DIR}/vaultpass"
+    chmod 600 "/home/${MAIN_USER}/${VAULT_DIR}/vaultpass"
+    GIT_SSH_COMMAND="ssh -i /home/${MAIN_USER}/.ssh/id_rsa -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no" git clone git@github.com:utky/ansible-workstation.git "/home/${MAIN_USER}/ansible-workstation"
+    scp -i /home/${MAIN_USER}/.ssh/id_rsa -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no ${VAULT_REPO_USER}@${VAULT_REPO_HOST}:${VAULT_REPO_VAULTFILE} "/home/${MAIN_USER}/ansible-workstation/group_vars/all/vaultfile.yml"
+    cd /home/${MAIN_USER}/ansible-workstation
+    ansible-playbook -i inventory.yaml workspace.yml
+  EOS
 EOF
 
 chmod 755 /mnt${CONFIG_SCRIPT}
+cp  /home/${MAIN_USER}/.ssh/id_rsa /mnt/id_rsa
 arch-chroot /mnt ${CONFIG_SCRIPT}
 
 echo ">>>> install-base.sh: Completing installation.."
 /usr/bin/sleep 3
 /usr/bin/umount -R /mnt
+
+
